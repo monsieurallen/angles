@@ -9,6 +9,7 @@
             --primary: #007bff;
             --success: #28a745;
             --danger: #ff4757;
+            --purple: #6f42c1;
             --bg-ui: #ffffff;
             --guide-bg: rgba(240, 244, 248, 0.95);
         }
@@ -25,7 +26,6 @@
             border: 1px solid #eee;
         }
 
-        /* --- CONTENEUR DE SAISIE DYNAMIQUE --- */
         .input-container {
             position: relative;
             display: inline-flex;
@@ -44,25 +44,17 @@
         }
 
         #degree-marker {
-            position: absolute;
-            font-weight: bold;
-            color: #333;
-            pointer-events: none;
-            transition: transform 0.1s ease-out;
-            font-size: 1.1em;
-            /* On le centre par défaut */
-            left: 50%;
-            transform: translateX(-50%);
+            position: absolute; font-weight: bold; color: #333;
+            pointer-events: none; transition: transform 0.1s ease-out;
+            font-size: 1.1em; left: 50%; transform: translateX(-50%);
         }
 
-        /* Span invisible pour mesurer la largeur du texte */
         #text-measurer {
             position: absolute; visibility: hidden; height: 0;
             font-size: 1.2em; font-family: 'Segoe UI', system-ui, sans-serif;
             white-space: pre;
         }
 
-        /* --- GUIDE FLOTTANT --- */
         #guide-visuel {
             position: absolute; top: 85px; left: 15px; z-index: 90;
             display: flex; align-items: center; background: var(--guide-bg); 
@@ -80,17 +72,50 @@
         #guide-visuel.collapsed .guide-content { opacity: 0; }
 
         button { padding: 10px 18px; cursor: pointer; border-radius: 8px; border: none; background: var(--primary); color: white; font-weight: bold; }
-        #feedback { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); font-size: 2.5em; font-weight: bold; opacity: 0; z-index: 200; }
-        #protractor-container { position: absolute; cursor: move; transform-origin: 50% 90%; z-index: 50; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #ccc !important; cursor: not-allowed; }
+        
+        #feedback { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); font-size: 2.5em; font-weight: bold; opacity: 0; z-index: 200; pointer-events: none; }
+        #protractor-container { position: absolute; cursor: move; transform-origin: 50% 90%; z-index: 50; touch-action: none; }
         #protractor-img { display: block; width: 100%; opacity: 0.85; pointer-events: none; }
-        #rotate-handle { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; background: var(--danger); border-radius: 50%; border: 3px solid white; cursor: alias; }
+        #rotate-handle { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; background: var(--danger); border-radius: 50%; border: 3px solid white; cursor: alias; touch-action: none; }
         canvas { display: block; }
+
+        /* --- POPUP INTERACTIF (COIN SUPÉRIEUR DROIT) --- */
+        #demo-modal {
+            position: fixed; top: 20px; right: 20px; width: 380px;
+            background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(5px);
+            z-index: 1000; display: none; border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 2px solid var(--purple);
+            animation: modalSlide 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+        }
+        @keyframes modalSlide {
+            0% { transform: translateY(-20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .modal-card { padding: 20px; text-align: left; position: relative; }
+        .modal-card h2 { color: var(--purple); margin-top: 0; font-size: 1.2em; display: flex; align-items: center; gap: 8px; }
+        .step-box {
+            background: #f8f9fa; border-left: 4px solid var(--purple);
+            padding: 12px; margin: 15px 0; border-radius: 0 6px 6px 0;
+            font-size: 0.95em; color: #333; line-height: 1.4;
+            min-height: 60px; display: flex; align-items: center;
+            white-space: normal; word-break: break-word;
+        }
+        .step-box b {
+            white-space: nowrap;
+            margin-right: 4px;
+        }
+        .modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .modal-actions button { flex: 1; padding: 8px; font-size: 0.9em; }
+        .btn-secondary { background: #6c757d; }
     </style>
 </head>
 <body>
 
 <div id="main-toolbar">
     <button onclick="generateAngle()">🔄 Nouvel angle</button>
+    <button onclick="openDemoModal()" style="background: var(--purple);">💡 Exemple</button>
     <div style="height: 30px; width: 1px; background: #ddd;"></div>
     
     <div style="display: flex; align-items: center; gap: 8px; font-weight: bold;">
@@ -98,11 +123,25 @@
         <div class="input-container">
             <input type="number" id="studentGuess" placeholder="?" min="0" max="180" oninput="updateDegreePos()">
             <span id="degree-marker">°</span>
-            <span id="text-measurer"></span> </div>
+            <span id="text-measurer"></span> 
+        </div>
         <button onclick="validateGuess()" style="background: var(--success);">Valider</button>
     </div>
     
     <span id="actual-measure" style="display:none; font-weight:bold; color:#666;"></span>
+</div>
+
+<!-- POPUP DÉMONSTRATION ÉTAPE PAR ÉTAPE -->
+<div id="demo-modal">
+    <div class="modal-card">
+        <h2><span>💡</span> Démonstration guidée</h2>
+        <div class="step-box" id="modal-step-text">Chargement...</div>
+        <div class="modal-actions">
+            <button id="prev-btn" class="btn-secondary" onclick="prevStep()">Précédent</button>
+            <button id="next-btn" onclick="nextStep()">Étape suivante</button>
+        </div>
+        <button class="btn-secondary" onclick="closeDemoModal()" style="width: 100%; margin-top: 8px; background: #dc3545;">Quitter</button>
+    </div>
 </div>
 
 <div id="guide-visuel">
@@ -132,10 +171,19 @@
     const degreeMarker = document.getElementById('degree-marker');
     const measurer = document.getElementById('text-measurer');
     
+    const modal = document.getElementById('demo-modal');
+    const modalStepText = document.getElementById('modal-step-text');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    
     let currentAngle = 0, baseRotation = 0, anglePos = { x: 0, y: 0 };
     let isDragging = false, isRotating = false;
     let protractorRotation = 0, scale = 1, protractorPos = { x: 0, y: 0 };
     let dragOffset = { x: 0, y: 0 };
+    let currentDemoStep = 1;
+    let sweepProgress = 0; 
+    let sweepAnimationId = null;
+    let demoSide = 'right'; // 'right' ou 'left'
 
     function init() {
         resizeCanvas();
@@ -146,21 +194,16 @@
         updateDegreePos();
     }
 
-    // --- LOGIQUE DU SYMBOLE DEGRÉ DYNAMIQUE ---
     function updateDegreePos() {
         const val = guessInput.value;
         if (!val) {
-            // Si vide (placeholder), on centre le symbole
             degreeMarker.innerText = "°";
             degreeMarker.style.left = "50%";
-            degreeMarker.style.transform = "translateX(-4px)"; // Petit décalage par rapport au '?'
+            degreeMarker.style.transform = "translateX(-4px)";
             return;
         }
-        
         measurer.textContent = val;
         const textWidth = measurer.offsetWidth;
-        
-        // On place le symbole à la moitié de la largeur du texte vers la droite du centre
         const offset = (textWidth / 2) - 4; 
         degreeMarker.style.left = "50%";
         degreeMarker.style.transform = `translateX(${offset}px)`;
@@ -212,11 +255,39 @@
         ctx.save();
         ctx.translate(anglePos.x, anglePos.y);
         ctx.rotate(baseRotation);
+        
+        // Arc de l'angle classique
         if (currentAngle > 0) {
             ctx.beginPath(); ctx.lineWidth = 3; ctx.strokeStyle = "#ff4757";
             ctx.arc(0, 0, 65, 0, -currentAngle * (Math.PI / 180), true);
             ctx.stroke();
         }
+
+        // ANIMATION DE BALAYAGE PROPORTIONNELLE (avec tes nouvelles valeurs 0.60 et 0.65)
+        if (currentDemoStep === 3 && sweepProgress > 0) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+
+            let sweepRadius = (demoSide === 'right') ? (380 * 0.60 * scale) : (380 * 0.65 * scale);
+
+            if (demoSide === 'right') {
+                let currentSweepAngle = -(currentAngle * sweepProgress) * (Math.PI / 180);
+                ctx.arc(0, 0, sweepRadius, 0, currentSweepAngle, true);
+            } else {
+                let startAngle = -currentAngle * (Math.PI / 180);
+                let currentSweepAngle = startAngle + (0 - startAngle) * sweepProgress;
+                ctx.arc(0, 0, sweepRadius, startAngle, currentSweepAngle, false);
+            }
+
+            ctx.closePath();
+            ctx.fillStyle = "rgba(111, 66, 193, 0.2)"; 
+            ctx.fill();
+            ctx.strokeStyle = "rgba(111, 66, 193, 0.6)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Dessin des deux demi-droites de l'angle
         ctx.strokeStyle = "#2c3e50"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
         ctx.beginPath();
         ctx.moveTo(0, 0); ctx.lineTo(380, 0); 
@@ -226,22 +297,154 @@
         ctx.restore();
     }
 
+    // --- CONTRÔLE MANUEL DE LA DÉMO ÉTAPE PAR ÉTAPE ---
+    function openDemoModal() {
+        modal.style.display = "block";
+        currentDemoStep = 1;
+        sweepProgress = 0;
+        demoSide = Math.random() < 0.5 ? 'right' : 'left';
+        updateDemoStepView();
+    }
+
+    function closeDemoModal() {
+        modal.style.display = "none";
+        if (sweepAnimationId) cancelAnimationFrame(sweepAnimationId);
+        sweepProgress = 0;
+        draw();
+    }
+
+    function nextStep() {
+        if (currentDemoStep < 3) {
+            currentDemoStep++;
+            updateDemoStepView();
+        } else {
+            closeDemoModal();
+        }
+    }
+
+    function prevStep() {
+        if (currentDemoStep > 1) {
+            currentDemoStep--;
+            if (currentDemoStep < 3) {
+                sweepProgress = 0;
+                if (sweepAnimationId) cancelAnimationFrame(sweepAnimationId);
+                draw();
+            }
+            updateDemoStepView();
+        }
+    }
+
+    function updateDemoStepView() {
+        prevBtn.disabled = (currentDemoStep === 1);
+        if (currentDemoStep === 3) {
+            nextBtn.innerText = "Terminer";
+        } else {
+            nextBtn.innerText = "Étape suivante";
+        }
+
+        let baseDeg = baseRotation * (180 / Math.PI);
+        let targetRot = (demoSide === 'right') ? baseDeg : (baseDeg - currentAngle + 180);
+
+        if (currentDemoStep === 1) {
+            sweepProgress = 0;
+            if (sweepAnimationId) cancelAnimationFrame(sweepAnimationId);
+            draw();
+            modalStepText.innerHTML = "<span><b>Étape 1 :</b> Placer le point d'origine du rapporteur d'angle sur le sommet de l'angle.</span>";
+            animateProtractorTo(anglePos.x, anglePos.y, protractorRotation, 1, 800);
+        } 
+        else if (currentDemoStep === 2) {
+            sweepProgress = 0;
+            if (sweepAnimationId) cancelAnimationFrame(sweepAnimationId);
+            draw();
+            let coteTexte = demoSide === 'right' ? "côté droit (0°)" : "côté gauche (180°)";
+            modalStepText.innerHTML = `<span><b>Étape 2 :</b> Aligner la ligne de foi du rapporteur sur le ${coteTexte}.</span>`;
+            animateProtractorTo(anglePos.x, anglePos.y, targetRot, 1, 1000);
+        } 
+        else if (currentDemoStep === 3) {
+            let departTexte = demoSide === 'right' ? "0° (à droite)" : "180° (à gauche)";
+            modalStepText.innerHTML = `<span><b>Étape 3 :</b> En partant de ${departTexte}, lis la graduation jusqu'à l'autre demi-droite.<br>Mesure : <b>${currentAngle}°</b></span>`;
+            animateProtractorTo(anglePos.x, anglePos.y, targetRot, 1, 600);
+            startSweepAnimation();
+        }
+    }
+
+    function startSweepAnimation() {
+        sweepProgress = 0;
+        if (sweepAnimationId) cancelAnimationFrame(sweepAnimationId);
+        let startTime = null;
+        const duration = 1200; 
+
+        function animateSweep(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let progress = (timestamp - startTime) / duration;
+            if (progress > 1) progress = 1;
+
+            sweepProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            draw();
+
+            if (progress < 1 && currentDemoStep === 3) {
+                sweepAnimationId = requestAnimationFrame(animateSweep);
+            }
+        }
+        sweepAnimationId = requestAnimationFrame(animateSweep);
+    }
+
+    function animateProtractorTo(tx, ty, trot, tscale, duration) {
+        let startX = protractorPos.x, startY = protractorPos.y;
+        let startRot = protractorRotation, startScale = scale;
+        
+        let rotDiff = (trot - startRot) % 360;
+        if (rotDiff > 180) rotDiff -= 360;
+        if (rotDiff < -180) rotDiff += 360;
+
+        let startTime = null;
+
+        function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let progress = (timestamp - startTime) / duration;
+            if (progress > 1) progress = 1;
+
+            let ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+            protractorPos.x = startX + (tx - startX) * ease;
+            protractorPos.y = startY + (ty - startY) * ease;
+            protractorRotation = startRot + (rotDiff) * ease;
+            scale = startScale + (tscale - startScale) * ease;
+
+            updateProtractor();
+            draw();
+
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
     window.onwheel = (e) => {
         scale = (e.deltaY < 0) ? scale + 0.04 : Math.max(0.15, scale - 0.04);
         updateProtractor();
+        draw();
     };
 
-    container.onmousedown = (e) => {
+    // --- COMPATIBILITÉ UNIFIÉE : SOURIS, TACTILE & STYLET EPSON (POINTER EVENTS) ---
+    container.onpointerdown = (e) => {
         if (e.target === rotateHandle) return;
         isDragging = true;
         dragOffset.x = e.clientX - protractorPos.x;
         dragOffset.y = e.clientY - protractorPos.y;
+        container.setPointerCapture(e.pointerId);
         e.preventDefault();
     };
 
-    rotateHandle.onmousedown = (e) => { isRotating = true; e.stopPropagation(); e.preventDefault(); };
+    rotateHandle.onpointerdown = (e) => { 
+        isRotating = true; 
+        rotateHandle.setPointerCapture(e.pointerId);
+        e.stopPropagation(); 
+        e.preventDefault(); 
+    };
 
-    window.onmousemove = (e) => {
+    window.onpointermove = (e) => {
         if (isDragging) {
             protractorPos.x = e.clientX - dragOffset.x;
             protractorPos.y = e.clientY - dragOffset.y;
@@ -253,13 +456,16 @@
         updateProtractor();
     };
 
+    window.onpointerup = window.onpointercancel = () => { 
+        isDragging = isRotating = false; 
+    };
+
     function updateProtractor() {
         container.style.left = protractorPos.x + "px";
         container.style.top = protractorPos.y + "px";
         container.style.transform = `translate(-50%, -90%) rotate(${protractorRotation}deg) scale(${scale})`;
     }
 
-    window.onmouseup = () => { isDragging = isRotating = false; };
     window.onresize = () => { resizeCanvas(); draw(); };
     init();
 </script>
